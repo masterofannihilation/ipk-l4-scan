@@ -4,6 +4,7 @@ build:
 	dotnet publish -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -o ./
 
 clean:
+	rm -r ipk-l4-scan bin obj *.pdb
 	dotnet clean
 
 .PHONY: all build clean

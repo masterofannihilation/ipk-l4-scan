@@ -3,7 +3,7 @@ obj/
 *.user
 *.suo
 *.vs/
-*.sln
 *.csproj.user
 .vscode/
 *.pdb
+ipk-l4-scan
