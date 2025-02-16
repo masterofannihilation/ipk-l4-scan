@@ -6,7 +6,7 @@ namespace ipk_l4_scan.socket;
 
 public static class ScannerSocket
 { 
-    public static IPAddress? GetAddress(string interfaceName)
+    private static IPAddress? GetAddress(string interfaceName)
     {
         try
         {
@@ -34,8 +34,9 @@ public static class ScannerSocket
     public static Socket InitSocket(string interfaceName)
     {
         IPAddress address = GetAddress(interfaceName);
-        IPEndPoint localEp = new IPEndPoint(address, 0);
-        var scanner = new Socket(address.AddressFamily, SocketType.Raw, ProtocolType.Tcp);
+        IPEndPoint localEp = new IPEndPoint(address, 12345);
+        var scanner = new Socket(AddressFamily.InterNetwork, SocketType.Raw, ProtocolType.Tcp);
+        scanner.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.HeaderIncluded, true);
         scanner.Bind(localEp);
         return scanner;
     }

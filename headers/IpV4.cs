@@ -30,6 +30,12 @@ public class IpV4
         return BitConverter.ToUInt32(bytes.Reverse().ToArray(), 0);
     }
     
+    private string UintToIpString(uint address)
+    {
+        byte[] bytes = BitConverter.GetBytes(address).Reverse().ToArray();
+        return new IPAddress(bytes).ToString();
+    }
+    
     public byte[] ToByteArray()
     {
         byte[] header = new byte[20];
@@ -45,8 +51,13 @@ public class IpV4
         header[9] = Protocol;
         header[10] = 0;
         header[11] = 0;
-        BitConverter.GetBytes(SourceAddress).CopyTo(header, 12);
-        BitConverter.GetBytes(DestinationAddress).CopyTo(header, 16);
+        
+        // Convert source and destination addresses to bytes and ensure they are in network byte order (big-endian)
+        byte[] sourceBytes = BitConverter.GetBytes(SourceAddress).Reverse().ToArray();
+        byte[] destinationBytes = BitConverter.GetBytes(DestinationAddress).Reverse().ToArray();
+
+        sourceBytes.CopyTo(header, 12);
+        destinationBytes.CopyTo(header, 16);
         
         // Calculate checksum after the header is fully constructed
         HeaderChecksum = CalculateCheckSum(header);
@@ -56,18 +67,21 @@ public class IpV4
         // Verify checksum
         if (CalculateCheckSum(header) == 0)
         {
-            Console.WriteLine("Checksum correct");
+            Console.WriteLine("IpV4 Checksum correct");
         }
         else
         {
-            Console.WriteLine("Checksum incorrect");
+            Console.WriteLine("IpV4 Checksum incorrect");
         }
+        
+        // Print out the IP addresses
+        Console.WriteLine($"Source IP: {UintToIpString(SourceAddress)}");
+        Console.WriteLine($"Destination IP: {UintToIpString(DestinationAddress)}");
 
         return header;
     }
 
-    // Calculate checksum
-    public ushort CalculateCheckSum(byte[] header)
+    private ushort CalculateCheckSum(byte[] header)
     {
         uint checksum = 0;
 
@@ -81,10 +95,11 @@ public class IpV4
                 checksum = (checksum & 0xFFFF) + 1;
         }
 
-        // Invert
         checksum = ~checksum;
 
-        Console.WriteLine($"Checksum calculated: {checksum}");
+        Console.WriteLine($"IP Checksum calculated: {checksum}");
+        Console.WriteLine($"Checksum: 0x{checksum:X4}");
+        Console.WriteLine("");
         return (ushort)(checksum & 0xFFFF);
     }
 }
