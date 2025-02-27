@@ -2,9 +2,9 @@ using System.Net;
 
 namespace ipk_l4_scan.headers;
 
-public class Tcp
+public class TcpHeader
 {
-    public ushort SourcePort { get; set; }
+    public ushort SrcPort { get; set; }
     public ushort DestinationPort { get; set; }
     public uint SequenceNumber { get; set; } = 0;
     public uint AcknowledgmentNumber { get; set; } = 0;
@@ -15,15 +15,15 @@ public class Tcp
     public ushort Checksum { get; set; } = 0;
     public ushort UrgentPointer { get; set; } = 0;
     
-    private uint sourceIP;
-    private uint destIP;
+    private uint srcIp;
+    private uint dstIp;
 
-    public Tcp(ushort sourcePort, ushort destPort, string srcIp, string dstIp)
+    public TcpHeader(ushort srcPort, ushort destPort, IPAddress srcIp, IPAddress dstIp)
     {
-        SourcePort = sourcePort;
+        SrcPort = srcPort;
         DestinationPort = destPort;
-        sourceIP = IpStringToUint(srcIp);
-        destIP = IpStringToUint(dstIp);
+        this.srcIp = IpStringToUint(srcIp.ToString());
+        this.dstIp = IpStringToUint(dstIp.ToString());
     }
     
     private uint IpStringToUint(string ip)
@@ -36,8 +36,8 @@ public class Tcp
     public byte[] ToByteArray()
     {
         byte[] header = new byte[20];
-        header[0] = (byte)(SourcePort >> 8);
-        header[1] = (byte)(SourcePort & 0xFF);
+        header[0] = (byte)(SrcPort >> 8);
+        header[1] = (byte)(SrcPort & 0xFF);
         header[2] = (byte)(DestinationPort >> 8);
         header[3] = (byte)(DestinationPort & 0xFF);
         BitConverter.GetBytes(SequenceNumber).CopyTo(header, 4);
@@ -54,17 +54,6 @@ public class Tcp
         Checksum = CheckSum(header);
         header[16] = (byte)(Checksum >> 8);
         header[17] = (byte)(Checksum & 0xFF);
-        
-        //Verify checksum
-        if (CheckSum(header) == 0)
-        {
-            Console.WriteLine("Tcp checksum correct");
-        }
-        else
-        {
-            Console.WriteLine("Tcp checksum incorrect");
-        }
-        
 
         return header;
     }
@@ -75,8 +64,8 @@ public class Tcp
         byte[] pseudoHeader = new byte[12 + header.Length];
 
         // Source & destination IPs (Big-endian)
-        BitConverter.GetBytes(sourceIP).Reverse().ToArray().CopyTo(pseudoHeader, 0);
-        BitConverter.GetBytes(destIP).Reverse().ToArray().CopyTo(pseudoHeader, 4);
+        BitConverter.GetBytes(srcIp).Reverse().ToArray().CopyTo(pseudoHeader, 0);
+        BitConverter.GetBytes(dstIp).Reverse().ToArray().CopyTo(pseudoHeader, 4);
 
         pseudoHeader[8] = 0;
         pseudoHeader[9] = 6;

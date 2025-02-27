@@ -2,7 +2,7 @@ using System.Net;
 
 namespace ipk_l4_scan.headers;
 
-public class IpV4
+public class IpV4Header
 {
     public byte Version { get; set; } = 4;
     public byte HeaderLength { get; set; } = 5;
@@ -17,10 +17,10 @@ public class IpV4
     public uint SourceAddress { get; set; }
     public uint DestinationAddress { get; set; }
     
-    public IpV4(string sourceIP, string destIP)
+    public IpV4Header(IPAddress srcIp, IPAddress dstIp)
     {
-        SourceAddress = IpStringToUint(sourceIP);
-        DestinationAddress = IpStringToUint(destIP);
+        SourceAddress = IpStringToUint(srcIp.ToString());
+        DestinationAddress = IpStringToUint(dstIp.ToString());
     }
     
     private uint IpStringToUint(string ip)
@@ -28,12 +28,6 @@ public class IpV4
         var ipAddr = IPAddress.Parse(ip);
         byte[] bytes = ipAddr.GetAddressBytes();
         return BitConverter.ToUInt32(bytes.Reverse().ToArray(), 0);
-    }
-    
-    private string UintToIpString(uint address)
-    {
-        byte[] bytes = BitConverter.GetBytes(address).Reverse().ToArray();
-        return new IPAddress(bytes).ToString();
     }
     
     public byte[] ToByteArray()
@@ -53,35 +47,24 @@ public class IpV4
         header[11] = 0;
         
         // Convert source and destination addresses to bytes and ensure they are in network byte order (big-endian)
-        byte[] sourceBytes = BitConverter.GetBytes(SourceAddress).Reverse().ToArray();
-        byte[] destinationBytes = BitConverter.GetBytes(DestinationAddress).Reverse().ToArray();
+        AddIpAddresses();
 
-        sourceBytes.CopyTo(header, 12);
-        destinationBytes.CopyTo(header, 16);
-        
         // Calculate checksum after the header is fully constructed
-        HeaderChecksum = CalculateCheckSum(header);
-        header[10] = (byte)(HeaderChecksum >> 8);
-        header[11] = (byte)(HeaderChecksum & 0xFF);
-
-        // Verify checksum
-        if (CalculateCheckSum(header) == 0)
-        {
-            Console.WriteLine("IpV4 Checksum correct");
-        }
-        else
-        {
-            Console.WriteLine("IpV4 Checksum incorrect");
-        }
-        
-        // Print out the IP addresses
-        Console.WriteLine($"Source IP: {UintToIpString(SourceAddress)}");
-        Console.WriteLine($"Destination IP: {UintToIpString(DestinationAddress)}");
+        CalculateCheckSum(header);
 
         return header;
+
+        void AddIpAddresses()
+        {
+            byte[] sourceBytes = BitConverter.GetBytes(SourceAddress).Reverse().ToArray();
+            byte[] destinationBytes = BitConverter.GetBytes(DestinationAddress).Reverse().ToArray();
+
+            sourceBytes.CopyTo(header, 12);
+            destinationBytes.CopyTo(header, 16);
+        }
     }
 
-    private ushort CalculateCheckSum(byte[] header)
+    private void CalculateCheckSum(byte[] header)
     {
         uint checksum = 0;
 
@@ -97,9 +80,7 @@ public class IpV4
 
         checksum = ~checksum;
 
-        Console.WriteLine($"IP Checksum calculated: {checksum}");
-        Console.WriteLine($"Checksum: 0x{checksum:X4}");
-        Console.WriteLine("");
-        return (ushort)(checksum & 0xFFFF);
+        header[10] = (byte)(HeaderChecksum >> 8);
+        header[11] = (byte)(HeaderChecksum & 0xFF);
     }
 }

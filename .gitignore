@@ -6,4 +6,6 @@ obj/
 *.csproj.user
 .vscode/
 *.pdb
+*.idead
 ipk-l4-scan
+Folder.DotSettings
