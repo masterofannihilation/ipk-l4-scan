@@ -7,7 +7,7 @@ public class RemoteEndPoint
     public static IPEndPoint InitRemoteEndPoint(string target, int port)
     {
         var targetIpAddress = ResolveIpAddress(target);
-        return new IPEndPoint(targetIpAddress, port);
+        return new IPEndPoint(targetIpAddress, 0);
     }
 
     public static IPAddress ResolveIpAddress(string target)

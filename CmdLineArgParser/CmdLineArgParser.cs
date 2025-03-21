@@ -5,11 +5,11 @@ namespace ipk_l4_scan.CmdLineArgParser
 {
     public class CmdLineArgParser
     {
-        public string Interface { get; set; } = string.Empty;
-        public String UdpPorts { get; set; } = string.Empty;
-        public String TcpPorts { get; set; } = string.Empty;
-        public int Timeout { get; set; } = 5000;
-        public string Target { get; set; } = string.Empty;
+        public string Interface = string.Empty;
+        public String UdpPorts = string.Empty;
+        public String TcpPorts = string.Empty;
+        public int Timeout = 5000;
+        public string Target = string.Empty;
 
         public void ParseCmdLineArgs(string[] args)
         {
@@ -58,29 +58,6 @@ namespace ipk_l4_scan.CmdLineArgParser
             Console.WriteLine($"Timeout: {Timeout} milliseconds");
             Console.WriteLine($"Target: {Target}");
             Console.WriteLine();
-        }
-    }
-
-    public static class PortParser
-    {
-        public static int[] ToPortArray(this string ports)
-        {
-            if (ports.Contains(','))
-                return ports.SplitStringBy(',');
-
-            if (ports.Contains('-'))
-                return ports.SplitStringBy('-');
-
-            return int.TryParse(ports, out var result) ? [result] : [];
-        }
-
-        private static int[] SplitStringBy(this string ports, char separator)
-        {
-            return ports.Split(separator)
-                .Select(port => int.TryParse(port, out int result) ? result : (int?)null)
-                .Where(port => port.HasValue)
-                .Select(port => port.Value)
-                .ToArray();
         }
     }
 }

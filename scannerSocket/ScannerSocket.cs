@@ -2,18 +2,31 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 
-namespace ipk_l4_scan.socket;
+namespace ipk_l4_scan.scannerSocket;
 
-public class ScannerSocket
+public abstract class ScannerSocket
 {
-    public static Socket InitSocket(string interfaceName)
+    public static Socket InitSocket(string interfaceName, string dstIp)
     {
-        IPAddress ipAddress = GetInterfaceIpAddress(interfaceName);
-        if (ipAddress.AddressFamily == AddressFamily.InterNetwork)
+        if (!IPAddress.TryParse(dstIp, out var dstAddress))
         {
+            dstAddress = Dns.GetHostAddresses(dstIp).FirstOrDefault() ?? throw new InvalidOperationException();
+        }
+
+        IPAddress ipAddress;
+
+        if (dstAddress.AddressFamily == AddressFamily.InterNetwork)
+        {
+            ipAddress = GetInterfaceIpv4Address(interfaceName);
             return InitIpV4Socket(ipAddress);
         }
-        return InitIpV6Socket(ipAddress);
+        if (dstAddress.AddressFamily == AddressFamily.InterNetworkV6)
+        {
+            ipAddress = GetInterfaceIpv6Address(interfaceName);
+            return InitIpV6Socket(ipAddress);
+        }
+
+        throw new NotSupportedException("Unsupported IP address family.");
     }
     private static Socket InitIpV4Socket(IPAddress address)
     {
@@ -37,8 +50,7 @@ public class ScannerSocket
         try
         {
             IPEndPoint localEndPoint = new IPEndPoint(address, 0);
-            var scanner = new Socket(AddressFamily.InterNetworkV6, SocketType.Raw, ProtocolType.Tcp);
-            scanner.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.HeaderIncluded, true);
+            var scanner = new Socket(AddressFamily.InterNetworkV6, SocketType.Raw, ProtocolType.Raw);
             scanner.Bind(localEndPoint);
             return scanner;
         }
@@ -49,15 +61,34 @@ public class ScannerSocket
         }
     }
 
-    public static IPAddress GetInterfaceIpAddress(string interfaceName)
+    public static IPAddress GetInterfaceIpv4Address(string interfaceName)
     {
         try
         {
             return NetworkInterface.GetAllNetworkInterfaces()
-                .Where(ni => ni.Name == interfaceName)
-                .SelectMany(ni => ni.GetIPProperties().UnicastAddresses)
-                .Select(ip => ip.Address)
-                .FirstOrDefault() ?? throw new Exception($"Cannot find an IP address for {interfaceName}.");
+                       .Where(ni => ni.Name == interfaceName)
+                       .SelectMany(ni => ni.GetIPProperties().UnicastAddresses)
+                       .Select(ip => ip.Address)
+                       .FirstOrDefault(ip => ip.AddressFamily == AddressFamily.InterNetwork) 
+                   ?? throw new Exception($"Cannot find an IPv4 address for {interfaceName}.");
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
+    }
+    
+    public static IPAddress GetInterfaceIpv6Address(string interfaceName)
+    {
+        try
+        {
+            return NetworkInterface.GetAllNetworkInterfaces()
+                       .Where(ni => ni.Name == interfaceName)
+                       .SelectMany(ni => ni.GetIPProperties().UnicastAddresses)
+                       .Select(ip => ip.Address)
+                       .FirstOrDefault(ip => ip.AddressFamily == AddressFamily.InterNetworkV6) 
+                   ?? throw new Exception($"Cannot find an IPv6 address for {interfaceName}.");
         }
         catch (Exception e)
         {

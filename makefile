@@ -7,4 +7,10 @@ clean:
 	rm -r ipk-l4-scan bin obj *.pdb
 	dotnet clean
 
+zip:
+	zip -r ipk-l4-scan.zip * -x "obj/*" "bin/*" "*.pdb"
+
+send:
+	scp ipk-l4-scan.zip xhatal02@merlin.fit.vutbr.cz:/homes/eva/xh/xhatal02
+
 .PHONY: all build clean

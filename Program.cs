@@ -1,5 +1,7 @@
 ﻿using ipk_l4_scan.portScanner;
 
+//TODO reformat packet constructor
+
 namespace ipk_l4_scan
 {
   class Program
@@ -11,7 +13,7 @@ namespace ipk_l4_scan
       cmdLineArgParser.PrintParsedArgs();
       
       var scanner = new PortScanner(cmdLineArgParser);
-      scanner.StartScanner(cmdLineArgParser);
+      scanner.InitScanner(cmdLineArgParser);
 
       return 0;
     }

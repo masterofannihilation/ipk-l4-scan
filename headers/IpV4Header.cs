@@ -4,23 +4,24 @@ namespace ipk_l4_scan.headers;
 
 public class IpV4Header
 {
-    public byte Version { get; set; } = 4;
-    public byte HeaderLength { get; set; } = 5;
-    public byte TypeOfService { get; set; } = 0;
-    public ushort TotalLength { get; set; } = 40;
-    public ushort Identification { get; set; } = 0xabcd;
-    public byte Flags { get; set; } = 0;
-    public ushort FragmentOffset { get; set; } = 0;
-    public byte TimeToLive { get; set; } = 64;
-    public byte Protocol { get; set; } = 6;
-    public ushort HeaderChecksum { get; set; } = 0;
-    public uint SourceAddress { get; set; }
-    public uint DestinationAddress { get; set; }
+    private readonly byte _version = 4;
+    private readonly byte _headerLength = 5;
+    private readonly byte _typeOfService = 0;
+    private readonly ushort _totalLength = 40;
+    private readonly ushort _identification = 0xabcd;
+    private readonly byte _flags = 0;
+    private readonly ushort _fragmentOffset = 0;
+    private readonly byte _timeToLive = 64;
+    private readonly byte _protocol;
+    private ushort _checksum = 0;
+    private readonly uint _sourceAddress;
+    private readonly uint _destinationAddress;
     
-    public IpV4Header(IPAddress srcIp, IPAddress dstIp)
+    public IpV4Header(IPAddress srcIp, IPAddress dstIp, uint protocol)
     {
-        SourceAddress = IpStringToUint(srcIp.ToString());
-        DestinationAddress = IpStringToUint(dstIp.ToString());
+        _sourceAddress = IpStringToUint(srcIp.ToString());
+        _destinationAddress = IpStringToUint(dstIp.ToString());
+        _protocol = (byte)protocol;
     }
     
     private uint IpStringToUint(string ip)
@@ -30,41 +31,37 @@ public class IpV4Header
         return BitConverter.ToUInt32(bytes.Reverse().ToArray(), 0);
     }
     
-    public byte[] ToByteArray()
+    public byte[] CreateHeader()
     {
         byte[] header = new byte[20];
-        header[0] = (byte)((Version << 4) | HeaderLength);  // Version + IHL
-        header[1] = TypeOfService;
-        header[2] = (byte)(TotalLength >> 8); // High byte
-        header[3] = (byte)(TotalLength & 0xFF); // Low byte
-        header[4] = (byte)(Identification >> 8); // same 
-        header[5] = (byte)(Identification & 0xFF);
-        header[6] = (byte)((Flags << 5) | (FragmentOffset >> 8));
-        header[7] = (byte)(FragmentOffset & 0xFF);
-        header[8] = TimeToLive;
-        header[9] = Protocol;
+        
+        header[0] = (byte)((_version << 4) | _headerLength);  // Version + IHL
+        header[1] = _typeOfService;
+        header[2] = (byte)(_totalLength >> 8); // High byte
+        header[3] = (byte)(_totalLength & 0xFF); // Low byte
+        header[4] = (byte)(_identification >> 8); // same 
+        header[5] = (byte)(_identification & 0xFF);
+        header[6] = (byte)((_flags << 5) | (_fragmentOffset >> 8));
+        header[7] = (byte)(_fragmentOffset & 0xFF);
+        header[8] = _timeToLive;
+        header[9] = _protocol;
         header[10] = 0;
         header[11] = 0;
         
-        // Convert source and destination addresses to bytes and ensure they are in network byte order (big-endian)
-        AddIpAddresses();
+        byte[] sourceBytes = BitConverter.GetBytes(_sourceAddress).Reverse().ToArray();
+        byte[] destinationBytes = BitConverter.GetBytes(_destinationAddress).Reverse().ToArray();
+        sourceBytes.CopyTo(header, 12);
+        destinationBytes.CopyTo(header, 16);
 
         // Calculate checksum after the header is fully constructed
-        CalculateCheckSum(header);
+        _checksum = CalculateCheckSum(header);
+        header[10] = (byte)(_checksum >> 8);
+        header[11] = (byte)(_checksum & 0xFF);
 
         return header;
-
-        void AddIpAddresses()
-        {
-            byte[] sourceBytes = BitConverter.GetBytes(SourceAddress).Reverse().ToArray();
-            byte[] destinationBytes = BitConverter.GetBytes(DestinationAddress).Reverse().ToArray();
-
-            sourceBytes.CopyTo(header, 12);
-            destinationBytes.CopyTo(header, 16);
-        }
     }
 
-    private void CalculateCheckSum(byte[] header)
+    private ushort CalculateCheckSum(byte[] header)
     {
         uint checksum = 0;
 
@@ -79,8 +76,6 @@ public class IpV4Header
         }
 
         checksum = ~checksum;
-
-        header[10] = (byte)(HeaderChecksum >> 8);
-        header[11] = (byte)(HeaderChecksum & 0xFF);
+        return (ushort)checksum;
     }
 }
