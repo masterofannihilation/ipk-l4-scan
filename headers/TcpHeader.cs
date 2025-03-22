@@ -37,7 +37,6 @@ public class TcpHeader(ushort srcPort, ushort destPort, IPAddress srcIp, IPAddre
             _checksum = PrepareIPv6PseudoHeader(header);
         else
             _checksum = PrepareIPv4PseudoHeader(header);
-        Console.WriteLine($"Checksum: {_checksum}");
         header[16] = (byte)(_checksum >> 8);
         header[17] = (byte)(_checksum & 0xFF);
         

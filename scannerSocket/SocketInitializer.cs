@@ -4,7 +4,7 @@ using System.Net.Sockets;
 
 namespace ipk_l4_scan.scannerSocket;
 
-public abstract class ScannerSocket
+public abstract class SocketInitializer
 {
     public static Socket InitSocket(string interfaceName, string dstIp)
     {
@@ -57,6 +57,23 @@ public abstract class ScannerSocket
         catch (Exception ex)
         {
             Console.WriteLine($"Error initializing IPv6 socket: {ex.Message}");
+            throw;
+        }
+    }
+    
+    public static Socket InitIcmpV6Socket(string interfaceName)
+    {
+        var address = GetInterfaceIpv6Address(interfaceName);
+        try
+        {
+            IPEndPoint localEndPoint = new IPEndPoint(address, 0);
+            var scanner = new Socket(AddressFamily.InterNetworkV6, SocketType.Raw, ProtocolType.IcmpV6);
+            scanner.Bind(localEndPoint);
+            return scanner;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error initializing ICMPv6 socket: {ex.Message}");
             throw;
         }
     }

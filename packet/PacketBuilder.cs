@@ -4,7 +4,7 @@ using ipk_l4_scan.headers;
 
 namespace ipk_l4_scan.packet;
 
-public class PacketCrafter(IPAddress srcIp, IPAddress dstIp, int srcPort)
+public class PacketBuilder(IPAddress srcIp, IPAddress dstIp, int srcPort)
 {
     private IPAddress srcIp = srcIp;
     private IPAddress dstIp = dstIp;
