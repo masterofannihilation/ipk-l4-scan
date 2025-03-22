@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.CommandLine;
 using System.CommandLine.NamingConventionBinder;
 
@@ -6,8 +7,7 @@ namespace ipk_l4_scan.CmdLineArgParser
     public class CmdLineArgParser
     {
         public string Interface = string.Empty;
-        public IEnumerable<int> UdpPorts = [];
-        public IEnumerable<int> TcpPorts = [];
+        public ConcurrentDictionary<(int Port, int Protocol), byte> ports = new();
         public int Timeout = 5000;
         public string Target = string.Empty;
 
@@ -41,30 +41,29 @@ namespace ipk_l4_scan.CmdLineArgParser
             rootCommand.Handler = CommandHandler.Create<string, string, string, int, string>((i, u, t, w, target) =>
             {
                 Interface = i;
-                UdpPorts = GetPorts(u);
-                TcpPorts = GetPorts(t);
                 Timeout = w;
                 Target = target;
+                // Add UDP ports to the dictionary
+                foreach (var port in GetPorts(u, 17)) // 17 is the protocol number for UDP
+                {
+                    ports.TryAdd((port, 17), 0);
+                }
+
+                // Add TCP ports to the dictionary
+                foreach (var port in GetPorts(t, 6)) // 6 is the protocol number for TCP
+                {
+                    ports.TryAdd((port, 6), 0);
+                }
             });
 
             rootCommand.Invoke(args);
         }
-
-        public void PrintParsedArgs()
-        {
-            Console.WriteLine($"Interface: {Interface}");
-            Console.WriteLine($"UDP Port/s: {string.Join(", ", UdpPorts)}");
-            Console.WriteLine($"TCP Port/s: {string.Join(", ", TcpPorts)}");
-            Console.WriteLine($"Timeout: {Timeout} milliseconds");
-            Console.WriteLine($"Target: {Target}");
-            Console.WriteLine();
-        }
         
-        public IEnumerable<int> GetPorts(string portInput)
+        public IEnumerable<int> GetPorts(string portInput, int protocol)
         {   
             if (portInput == null)
             {
-                return new List<int>();
+                return Enumerable.Empty<int>();
             }
             if (portInput.Contains(','))
             {

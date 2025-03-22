@@ -12,7 +12,7 @@ namespace ipk_l4_scan
       cmdLineArgParser.ParseCmdLineArgs(args);
       
       var scanner = new PortScanner(cmdLineArgParser);
-      await scanner.InitScanner(cmdLineArgParser);
+      await scanner.InitScannerAsync(cmdLineArgParser);
     }
   }
 }
