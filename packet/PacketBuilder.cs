@@ -75,6 +75,8 @@ public class PacketBuilder(IPAddress srcIp, IPAddress dstIp, int srcPort)
 
     private byte[] CreateUdpPacket(byte[] ipHeader, ushort dstPort)
     {
+        ipHeader[4] = 8 >> 8;
+        ipHeader[5] = 8 & 0xFF;
         byte[] udpHeader = new UdpHeader(srcPort, dstPort, srcIp, dstIp).CreateHeader();
         byte[] packet = new byte[ipHeader.Length + udpHeader.Length];
         Array.Copy(ipHeader, 0, packet, 0, ipHeader.Length);

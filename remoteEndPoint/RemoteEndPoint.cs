@@ -4,10 +4,10 @@ namespace ipk_l4_scan.remoteEndPoint;
 
 public class RemoteEndPoint
 {
-    public static IPEndPoint InitRemoteEndPoint(string target, int port)
+    public static IPEndPoint InitRemoteEndPoint(IPAddress target, int port)
     {
-        var targetIpAddress = ResolveIpAddress(target);
-        return new IPEndPoint(targetIpAddress, 0);
+        // var targetIpAddress = ResolveIpAddress(target);
+        return new IPEndPoint(target, 0);
     }
 
     public static IPAddress ResolveIpAddress(string target)
