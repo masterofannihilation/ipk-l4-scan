@@ -13,7 +13,7 @@ public class IpV4Header
     private readonly ushort _fragmentOffset = 0;
     private readonly byte _timeToLive = 64;
     private readonly byte _protocol;
-    private ushort _checksum = 0;
+    private ushort _checksum;
     private readonly uint _sourceAddress;
     private readonly uint _destinationAddress;
     

@@ -76,24 +76,6 @@ namespace ipk_l4_scan.packet
             byte[] buffer = new byte[e.BytesTransferred];
             Array.Copy(e.Buffer, e.Offset, buffer, 0, e.BytesTransferred);
 
-            // // Identify which socket received the data
-            // if (e == _scannerEventArgs)
-            // {
-            //     Console.WriteLine("Data received on scanner socket.");
-            // }
-            // if (e == _scannerV6EventArgs)
-            // {
-            //     Console.WriteLine("Data received on scanner IPv6 socket.");
-            // }
-            // if (e == _icmpEventArgs)
-            // {
-            //     Console.WriteLine("Data received on ICMP socket.");
-            // }
-            // if (e == _icmpV6EventArgs)
-            // {
-            //     Console.WriteLine("Data received on ICMPv6 socket.");
-            // }
-
             // Analyze the packet
             AnalysePacket(buffer);
 
@@ -113,11 +95,12 @@ namespace ipk_l4_scan.packet
         
         private  void AnalysePacket(byte[] buffer)
         {
+            // raw sockets will not receive whole IP datagram, but transport header directly
             //check if we got TCP header directly
             var dstPort = (ushort)((buffer[2] << 8) | buffer[3]);
             if (dstPort == _srcPort)
             {
-                // create dummy packet to pass to HandleTransportLayer
+                // create dummy packet just to pass something to HandleTransportLayer
                 var dummyPacket = CreateDummyPacket((byte)6);
                 HandleTransportLayer(buffer, dummyPacket);
             }
@@ -195,7 +178,7 @@ namespace ipk_l4_scan.packet
                 case { Protocol: 58 }: // ICMPv6 protocol number
                 {
                     var parsedIcmpV6Header = ParseIcmpV6Header(buffer);
-                    if (parsedIcmpV6Header is { Type: 1, Code: 4 or 1 })
+                    if (parsedIcmpV6Header is { Type: 1, Code: 4 })
                     {
                         // Mark the UDP port as closed
                         _ports.TryRemove((parsedIcmpV6Header.DestinationPort, 17), out _);
@@ -227,7 +210,7 @@ namespace ipk_l4_scan.packet
             int ipHeaderLength = (buffer[0] & 0x0F) * 4; // Calculate IP header length
             int tcpHeaderStart = ipHeaderLength; // TCP header starts after IP header
             
-            // check if we get TCP header directly
+            // check if we get TCP header directly, in that case we need to set tcpHeaderStart to 0
             var dstPort = (ushort)((buffer[2] << 8) | buffer[3]);
             if (dstPort == _srcPort)
             {

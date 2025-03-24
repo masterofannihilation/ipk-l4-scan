@@ -31,27 +31,23 @@ public class PortScanner
         try
         {
             var srcPort = GetScannerSourcePort();
-            
+            // Initialize packet capturing
             var packetCapture = new PacketCapture(_scannerSocket, srcPort, parser.ports);
             _ = Task.Run(() => packetCapture.CapturePacketAsync(token), token);
-            // Console.WriteLine("Packet capture initialized");
 
             await Task.Delay(1000, token); // Wait for packet capture to start
-
+            
             await ScanPortsAsync(parser, srcPort);
-            // Console.WriteLine("Scanning ports");
             
             await Task.Delay(parser.Timeout, token); // Wait for responses
             
-            // Print open UDP ports
-            // Console.WriteLine("Printing open UDP ports");
+            // Print open UDP ports, we did not get response from them after timeout ran out
             PrintOpenUdpPorts(parser, packetCapture, _dstIp);
-
-
-            if (parser.ports.Any())
+            
+            // If there are any ports left, rescan them
+            if (!parser.ports.IsEmpty)
             {
-                // Console.WriteLine("Rescanning ports");
-                await RescanPortsAsync(parser, _dstIp, srcPort, token, packetCapture);
+                await RescanPortsAsync(parser, srcPort, token, packetCapture);
             }
         }
         finally
@@ -61,7 +57,7 @@ public class PortScanner
         }
     }
 
-    private async Task RescanPortsAsync(CmdLineArgParser.CmdLineArgParser parser, IPAddress dstIp, int srcPort, CancellationToken token,
+    private async Task RescanPortsAsync(CmdLineArgParser.CmdLineArgParser parser, int srcPort, CancellationToken token,
         PacketCapture packetCapture)
     {
         foreach (var portEntry in parser.ports)
@@ -70,10 +66,12 @@ public class PortScanner
             var protocolNum = portEntry.Key.Protocol;
                 
             var protocol = protocolNum == 6 ? PacketBuilder.Protocol.Tcp : PacketBuilder.Protocol.Udp;
-            await SendPacketAsync(parser, protocol, _dstIp, srcPort, port);
+            await SendPacketAsync(protocol, srcPort, port);
         }
-            
+        
         await Task.Delay(parser.Timeout, token);
+        
+        // Print filtered ports, so ports that we did not get response from after rescan
         foreach (var portEntry in parser.ports)
         {
             var port = portEntry.Key.Port;
@@ -84,23 +82,24 @@ public class PortScanner
 
     private async Task ScanPortsAsync(CmdLineArgParser.CmdLineArgParser parser, int srcPort)
     {
+        // each port scan has its own task 
         var tasks = new List<Task>();
 
         foreach (var portEntry in parser.ports)
         {
             var port = portEntry.Key.Port;
             var protocolNum = portEntry.Key.Protocol == 6 ? PacketBuilder.Protocol.Tcp : PacketBuilder.Protocol.Udp;
-            tasks.Add(SendPacketAsync(parser, protocolNum, _dstIp, srcPort, port));
+            tasks.Add(SendPacketAsync(protocolNum, srcPort, port));
         }
 
         await Task.WhenAll(tasks);
     }
 
-    private async Task SendPacketAsync(CmdLineArgParser.CmdLineArgParser parser, PacketBuilder.Protocol protocol, 
-        IPAddress dstIp, int srcPort, int port)
+    private async Task SendPacketAsync(PacketBuilder.Protocol protocol, int srcPort, int port)
     {
+        // Create packet and send it
         var packet = new PacketBuilder(_srcIp, _dstIp, srcPort).CreatePacket((ushort)port, protocol);
-        var remoteEndPoint = RemoteEndPoint.InitRemoteEndPoint(_dstIp, port);
+        var remoteEndPoint = RemoteEndPoint.InitRemoteEndPoint(_dstIp);
         
         try
         {
@@ -114,10 +113,10 @@ public class PortScanner
     
     private void PrintOpenUdpPorts(CmdLineArgParser.CmdLineArgParser parser, PacketCapture packetCapture, IPAddress dstIp)
     {
-        foreach (var portEntry in parser.ports.Where(p => p.Key.Protocol == 17)) // 17 is the protocol number for UDP
+        foreach (var portEntry in parser.ports.Where(p => p.Key.Protocol == 17))
         {
             int port = portEntry.Key.Port; // Extract the port number
-            int protocolNum = portEntry.Key.Protocol; // Extract the protocol number (will always be 17 here)
+            int protocolNum = portEntry.Key.Protocol; // Extract the protocol number
             parser.ports.TryRemove((port, 17), out _);
             packetCapture.PrintInfo(_dstIp, (ushort)port, (byte)protocolNum, 0x12);
         }

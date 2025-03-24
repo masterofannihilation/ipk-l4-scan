@@ -24,7 +24,7 @@ public class UdpHeader(ushort srcPort, ushort dstPort, IPAddress srcIp, IPAddres
         header[4] = (byte)(_length >> 8);
         header[5] = (byte)(_length & 0xFF);
 
-        // Calculate checksum
+        // Calculate checksum based on IP version
         if (srcIp.AddressFamily == AddressFamily.InterNetworkV6)
             _checksum = PrepareIPv6PseudoHeader(header);
         else

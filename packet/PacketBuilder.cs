@@ -68,6 +68,7 @@ public class PacketBuilder(IPAddress srcIp, IPAddress dstIp, int srcPort)
     {
         byte[] tcpHeader = new TcpHeader(srcPort, dstPort, srcIp, dstIp).CreateHeader();
         byte[] packet = new byte[ipHeader.Length + tcpHeader.Length];
+        // put ip header and tcp header together tcp header at the end of ip header
         Array.Copy(ipHeader, 0, packet, 0, ipHeader.Length);
         Array.Copy(tcpHeader, 0, packet, ipHeader.Length, tcpHeader.Length);
         return packet;
@@ -79,6 +80,7 @@ public class PacketBuilder(IPAddress srcIp, IPAddress dstIp, int srcPort)
         ipHeader[5] = 8 & 0xFF;
         byte[] udpHeader = new UdpHeader(srcPort, dstPort, srcIp, dstIp).CreateHeader();
         byte[] packet = new byte[ipHeader.Length + udpHeader.Length];
+        // put ip header and tcp header together udp header at the end of ip header
         Array.Copy(ipHeader, 0, packet, 0, ipHeader.Length);
         Array.Copy(udpHeader, 0, packet, ipHeader.Length, udpHeader.Length);
         

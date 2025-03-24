@@ -30,32 +30,40 @@ public abstract class SocketInitializer
         var ipAddresses = NetworkInterface.GetAllNetworkInterfaces();
         bool ipv4 = false;
         bool ipv6 = false;
+        
+        CheckIpv4AndIpV6(interfaceName, ipAddresses, ref ipv4, ref ipv6);
+        
+        var hosts = new List<IPAddress>(Dns.GetHostAddresses(hostName) ?? throw new InvalidOperationException());
+        
+        // if interface does not support ipv4 or ipv6, remove the address from the list
+        return FilterHosts(hosts, ipv4, ipv6);
+    }
 
+    private static void CheckIpv4AndIpV6(string interfaceName, NetworkInterface[] ipAddresses, ref bool ipv4, ref bool ipv6)
+    {
         foreach (var ip in ipAddresses)
         {
-            if (ip.Name == interfaceName)
+            if (ip.Name != interfaceName) continue;
+            foreach (var ipProps in ip.GetIPProperties().UnicastAddresses)
             {
-                foreach (var ipProps in ip.GetIPProperties().UnicastAddresses)
+                if (ipProps.Address.AddressFamily == AddressFamily.InterNetwork)
                 {
-                    if (ipProps.Address.AddressFamily == AddressFamily.InterNetwork)
+                    ipv4 = true;
+                }
+                if (ipProps.Address.AddressFamily == AddressFamily.InterNetworkV6)
+                {
+                    // Check if the IPv6 address is global (not link-local or private)
+                    if (ipProps.Address is { IsIPv6LinkLocal: false, IsIPv6SiteLocal: false })
                     {
-                        ipv4 = true; // IPv4 is available
-                    }
-                    if (ipProps.Address.AddressFamily == AddressFamily.InterNetworkV6)
-                    {
-                        // Check if the IPv6 address is global (not link-local or private)
-                        if (ipProps.Address is { IsIPv6LinkLocal: false, IsIPv6SiteLocal: false })
-                        {
-                            ipv6 = true; // Global IPv6 is available
-                        }
+                        ipv6 = true; // Global IPv6 is available
                     }
                 }
             }
         }
+    }
 
-        var hosts = new List<IPAddress>(Dns.GetHostAddresses(hostName) ?? throw new InvalidOperationException());
-
-        // Filter hosts based on available IP versions
+    private static  List<IPAddress> FilterHosts(List<IPAddress> hosts, bool ipv4, bool ipv6)
+    {
         foreach (var host in hosts.ToList())
         {
             if (host.AddressFamily == AddressFamily.InterNetwork && !ipv4)
@@ -70,11 +78,12 @@ public abstract class SocketInitializer
 
         return hosts;
     }
-    private static Socket InitIpV4Socket(IPAddress address)
+
+    private static Socket InitIpV4Socket(IPAddress srcIp)
     {
         try
         {
-            IPEndPoint localEndPoint = new IPEndPoint(address, 0);
+            IPEndPoint localEndPoint = new IPEndPoint(srcIp, 0);
             var scanner = new Socket(AddressFamily.InterNetwork, SocketType.Raw, ProtocolType.Tcp);
             scanner.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.HeaderIncluded, true);
             scanner.Bind(localEndPoint);
@@ -103,23 +112,6 @@ public abstract class SocketInitializer
         }
     }
     
-    public static Socket InitIcmpV6Socket(string interfaceName)
-    {
-        var address = GetInterfaceIpv6Address(interfaceName);
-        try
-        {
-            IPEndPoint localEndPoint = new IPEndPoint(address, 0);
-            var scanner = new Socket(AddressFamily.InterNetworkV6, SocketType.Raw, ProtocolType.IcmpV6);
-            scanner.Bind(localEndPoint);
-            return scanner;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error initializing ICMPv6 socket: {ex.Message}");
-            throw;
-        }
-    }
-
     public static IPAddress GetInterfaceIpv4Address(string interfaceName)
     {
         try

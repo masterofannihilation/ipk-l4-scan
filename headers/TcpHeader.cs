@@ -32,7 +32,8 @@ public class TcpHeader(ushort srcPort, ushort destPort, IPAddress srcIp, IPAddre
         header[17] = 0;
         header[18] = (byte)(_urgentPointer >> 8);
         header[19] = (byte)(_urgentPointer & 0xFF);
-
+        
+        // calculate checksum based on IP version
         if (srcIp.AddressFamily == AddressFamily.InterNetworkV6)
             _checksum = PrepareIPv6PseudoHeader(header);
         else
