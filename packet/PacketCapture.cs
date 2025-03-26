@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Collections.Concurrent;
+using System.CommandLine.Parsing;
 using System.Reflection.Metadata.Ecma335;
 
 namespace ipk_l4_scan.packet
@@ -19,8 +20,9 @@ namespace ipk_l4_scan.packet
         
         private readonly int _srcPort;
         private readonly ConcurrentDictionary<(int Port, int Protocol), byte> _ports;
+        private readonly IPAddress _dstIp;
 
-        public PacketCapture(Socket scannerSocket, int srcPort, ConcurrentDictionary<(int Port, int Protocol), byte> ports)
+        public PacketCapture(Socket scannerSocket, int srcPort, ConcurrentDictionary<(int Port, int Protocol), byte> ports, IPAddress dstIp)
         {
             _scannerSocket = scannerSocket ?? throw new ArgumentNullException(nameof(scannerSocket));
             _scannerSocketV6 = new Socket(AddressFamily.InterNetworkV6, SocketType.Raw, ProtocolType.Tcp); 
@@ -44,19 +46,19 @@ namespace ipk_l4_scan.packet
             _scannerV6EventArgs.SetBuffer(new byte[65535], 0, 65535);
             _icmpEventArgs.SetBuffer(new byte[65535], 0, 65535);
             _icmpV6EventArgs.SetBuffer(new byte[65535], 0, 65535);
-            
+
+            _dstIp = dstIp;
             _srcPort = srcPort;
             _ports = ports;
         }
-
-        public async Task CapturePacketAsync(CancellationToken token)
+    public Task CapturePacketAsync()
     {
         // Start receiving on all sockets
         StartReceiving(_scannerSocket, _scannerEventArgs);
         StartReceiving(_scannerSocketV6, _scannerV6EventArgs);
         StartReceiving(_icmpSocket, _icmpEventArgs);
         StartReceiving(_icmpSocketV6, _icmpV6EventArgs);
-        
+        return Task.CompletedTask;
     }
 
     private void StartReceiving(Socket socket, SocketAsyncEventArgs args)
@@ -68,13 +70,13 @@ namespace ipk_l4_scan.packet
         }
     }
 
-    private void OnReceiveCompleted(object sender, SocketAsyncEventArgs e)
+    private void OnReceiveCompleted(object? sender, SocketAsyncEventArgs e)
     {
         if (e.BytesTransferred > 0 && e.SocketError == SocketError.Success)
         {
             // Process the received data
             byte[] buffer = new byte[e.BytesTransferred];
-            Array.Copy(e.Buffer, e.Offset, buffer, 0, e.BytesTransferred);
+            if (e.Buffer != null) Array.Copy(e.Buffer, e.Offset, buffer, 0, e.BytesTransferred);
 
             // Analyze the packet
             AnalysePacket(buffer);
@@ -127,9 +129,14 @@ namespace ipk_l4_scan.packet
 
         private IpPacket CreateDummyPacket(byte protocol)
         {
+            if (_scannerSocket.LocalEndPoint is not IPEndPoint localEndPoint)
+            {
+                throw new InvalidOperationException("LocalEndPoint is null");
+            }
+
             var dummyPacket = new IpPacket
             {
-                SourceIP = ((IPEndPoint)_scannerSocket.LocalEndPoint).Address,
+                SourceIp = localEndPoint.Address,
                 Protocol = protocol
             };
             return dummyPacket;
@@ -139,7 +146,7 @@ namespace ipk_l4_scan.packet
         {
             var ipv4Packet = new IpPacket
             {
-                SourceIP = new IPAddress(new ReadOnlySpan<byte>(buffer, 12, 4)),
+                SourceIp = new IPAddress(new ReadOnlySpan<byte>(buffer, 12, 4)),
                 Protocol = buffer[9],
             };
             return ipv4Packet;
@@ -156,20 +163,19 @@ namespace ipk_l4_scan.packet
                     if (parsedTcpHeader != null && parsedTcpHeader.DestinationPort == _srcPort)
                     {
                         _ports.TryRemove((parsedTcpHeader.SourcePort, 6), out _);
-                        PrintInfo(parsedPacket.SourceIP, parsedTcpHeader.SourcePort, parsedPacket.Protocol, parsedTcpHeader.Flags);
+                        PrintInfo(_dstIp, parsedTcpHeader.SourcePort, parsedPacket.Protocol, parsedTcpHeader.Flags);
                     }
-
                     break;
                 }
                 // ICMP
                 case { Protocol: 1 }:
                 {
                     var parsedIcmpHeader = ParseIcmpHeader(buffer);
-                    if (parsedIcmpHeader is { Type: 3, Code: 3 }) // ICMP port unreachable
+                    if (parsedIcmpHeader is { Type: 3, Code: 3 } && parsedIcmpHeader.SourcePort == _srcPort && parsedIcmpHeader.Protocol == 17) // ICMP port unreachable
                     {
                         // Mark the UDP port as closed
                         _ports.TryRemove((parsedIcmpHeader.DestinationPort, 17), out _);
-                        PrintInfo(parsedPacket.SourceIP, (ushort)parsedIcmpHeader.DestinationPort, parsedIcmpHeader.Protocol, 0x04);
+                        PrintInfo(parsedPacket.SourceIp, (ushort)parsedIcmpHeader.DestinationPort, parsedIcmpHeader.Protocol, 0x04);
                     }
 
                     break;
@@ -182,7 +188,7 @@ namespace ipk_l4_scan.packet
                     {
                         // Mark the UDP port as closed
                         _ports.TryRemove((parsedIcmpV6Header.DestinationPort, 17), out _);
-                        PrintInfo(parsedPacket.SourceIP, (ushort)parsedIcmpV6Header.DestinationPort, parsedIcmpV6Header.Protocol, 0x04);
+                        PrintInfo(_dstIp, (ushort)parsedIcmpV6Header.DestinationPort, parsedIcmpV6Header.Protocol, 0x04);
                     }
 
                     break;
@@ -316,7 +322,7 @@ namespace ipk_l4_scan.packet
 
 public class IpPacket
 {
-    public IPAddress SourceIP { get; set; }
+    public IPAddress SourceIp { get; set; } = IPAddress.None;
     public byte Protocol { get; set; }
 }
 

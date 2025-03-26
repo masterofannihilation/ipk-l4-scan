@@ -3,7 +3,7 @@ using System.Net.Sockets;
 
 namespace ipk_l4_scan.headers;
 
-public class TcpHeader(ushort srcPort, ushort destPort, IPAddress srcIp, IPAddress dstIp)
+public class TcpHeader(ushort srcPort, ushort destPort, IPAddress srcIp, IPAddress dstIp) : IHeader
 {
     private readonly uint _sequenceNumber = 0;
     private readonly uint _acknowledgmentNumber = 0;

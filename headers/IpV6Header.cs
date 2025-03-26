@@ -2,7 +2,7 @@ using System.Net;
 
 namespace ipk_l4_scan.headers;
 
-public class IpV6Header
+public class IpV6Header : IHeader
 {
     private byte Version = 6;
     private byte TrafficClass = 0;

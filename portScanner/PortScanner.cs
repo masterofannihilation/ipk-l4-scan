@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using ipk_l4_scan.packet;
@@ -12,7 +13,7 @@ public class PortScanner
     private readonly IPAddress _srcIp;
     private readonly IPAddress _dstIp;
     
-    private CancellationTokenSource _tokenSource;
+    private  CancellationTokenSource _tokenSource;
 
     public PortScanner(CmdLineArgParser.CmdLineArgParser parser, IPAddress dstIp)
     {
@@ -32,13 +33,13 @@ public class PortScanner
         {
             var srcPort = GetScannerSourcePort();
             // Initialize packet capturing
-            var packetCapture = new PacketCapture(_scannerSocket, srcPort, parser.ports);
-            _ = Task.Run(() => packetCapture.CapturePacketAsync(token), token);
+            var packetCapture = new PacketCapture(_scannerSocket, srcPort, parser.ports, _dstIp);
+            _ = Task.Run(() => packetCapture.CapturePacketAsync(), token);
 
             await Task.Delay(1000, token); // Wait for packet capture to start
             
             await ScanPortsAsync(parser, srcPort);
-            
+
             await Task.Delay(parser.Timeout, token); // Wait for responses
             
             // Print open UDP ports, we did not get response from them after timeout ran out

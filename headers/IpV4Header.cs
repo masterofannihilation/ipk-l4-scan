@@ -2,7 +2,7 @@ using System.Net;
 
 namespace ipk_l4_scan.headers;
 
-public class IpV4Header
+public class IpV4Header : IHeader
 {
     private readonly byte _version = 4;
     private readonly byte _headerLength = 5;

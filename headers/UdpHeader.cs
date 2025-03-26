@@ -5,7 +5,7 @@ using System.Net.Sockets;
 
 namespace ipk_l4_scan.headers;
 
-public class UdpHeader(ushort srcPort, ushort dstPort, IPAddress srcIp, IPAddress dstIp)
+public class UdpHeader(ushort srcPort, ushort dstPort, IPAddress srcIp, IPAddress dstIp) : IHeader
 {
     private readonly ushort _length = 8; // UDP header length
     private ushort _checksum;

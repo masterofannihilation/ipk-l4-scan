@@ -17,7 +17,7 @@ namespace ipk_l4_scan
       // save ports to scan
       var ports = new ConcurrentDictionary<(int Port, int Protocol), byte>(cmdLineArgParser.ports);
       // get all available hosts addresses, get rid of ipv6 addresses if interface does not support it
-      List<IPAddress> hosts = SocketInitializer.GetHostAddresses(cmdLineArgParser.Target, cmdLineArgParser.Interface);
+      var hosts = SocketInitializer.GetHostAddresses(cmdLineArgParser.Target, cmdLineArgParser.Interface);
       // if localhost is specified, hardcode it to 127.0.0.1
       if (cmdLineArgParser.Target == "localhost")
       {
