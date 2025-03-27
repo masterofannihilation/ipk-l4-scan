@@ -8,9 +8,9 @@ clean:
 	dotnet clean
 
 zip:
-	zip -r ipk-l4-scan.zip * -x "obj/*" "bin/*" "*.pdb" "doc/"
+	zip -r xhatal02.zip * -x "obj/*" "bin/*" "*.pdb" "doc/"
 
 send:
-	scp ipk-l4-scan.zip xhatal02@merlin.fit.vutbr.cz:/homes/eva/xh/xhatal02
+	scp xhatal02.zip xhatal02@merlin.fit.vutbr.cz:/homes/eva/xh/xhatal02
 
 .PHONY: all build clean
