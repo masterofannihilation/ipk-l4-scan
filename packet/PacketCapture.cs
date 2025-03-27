@@ -1,8 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Collections.Concurrent;
-using System.CommandLine.Parsing;
-using System.Reflection.Metadata.Ecma335;
 
 namespace ipk_l4_scan.packet
 {

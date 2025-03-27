@@ -2,7 +2,7 @@
 ## Computer Communications and Networks: Project n˚1 L4 Scanner
 
 **Author:** Boris Hatala (xhatal02) \
-**Date:** 26.03.2025
+**Date:** 27.03.2025
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -28,7 +28,7 @@ This program performs a TCP SYN scan and a UDP scan of given ports on specified 
 - **TCP SYN Scan**: Executed by sending a SYN packet to the specific port. The program then waits for either:
   - A **SYN-ACK response** indicating an **open** port, or
   - An **RST response** indicating a **closed** port.
-  - If there is **no response** the port is evaluated as **filtered**.
+  - If there is **no response** it is verified again with another packet and if we still don't get any response the port is evaluated as **filtered**.
 
 - **UDP Scan**: Sends a UDP packet to the specified ports and analyzes the responses or lack thereof:
   - If there is **no response**, the port is considered **open**.
@@ -117,7 +117,7 @@ The `PortScanner` class handles the sending of packets to the target ports. It u
 
 ### Processing Responses
 
-The `PacketCapture` class processes the responses received from the target ports. It analyzes the packets to determine the status of the ports (open, closed, or filtered). The class uses various helper methods to parse the headers of the received packets and extract relevant information. Raw IPv6 sockets will not receive whole IP datagram, instead they receive transport layer header directly, so responses are handled accordingly. The results are then printed to the console.
+The `PacketCapture` class processes the responses received from the target ports. It analyzes the packets to determine the status of the ports (open, closed, or filtered). The class uses various helper methods to parse the headers of the received packets and extract relevant information. Raw IPv6 sockets will not receive whole IP datagram, instead they receive transport layer header directly, so responses are handled accordingly. The results are then printed to the console. If there are no more ports to scan, all the processes are cancelled and program ends.
 
 ## Testing
 To ensure the accuracy and reliability of the L4 Scanner, the following testing methods were employed:
