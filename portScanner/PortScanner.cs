@@ -33,14 +33,12 @@ public class PortScanner
         {
             var srcPort = GetScannerSourcePort();
             // Initialize packet capturing
-            var packetCapture = new PacketCapture(_scannerSocket, srcPort, parser.ports, _dstIp);
+            var packetCapture = new PacketCapture(_scannerSocket, srcPort, parser.ports, _dstIp, _tokenSource);
             _ = Task.Run(() => packetCapture.CapturePacketAsync(), token);
 
-            await Task.Delay(1000, token); // Wait for packet capture to start
-            
             await ScanPortsAsync(parser, srcPort);
 
-            await Task.Delay(parser.Timeout, token); // Wait for responses
+            if (await checkIfTimeoutIsNeeded(parser, token)) return;
             
             // Print open UDP ports, we did not get response from them after timeout ran out
             PrintOpenUdpPorts(parser, packetCapture, _dstIp);
@@ -58,6 +56,20 @@ public class PortScanner
         }
     }
 
+    private static async Task<bool> checkIfTimeoutIsNeeded(CmdLineArgParser.CmdLineArgParser parser, CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(parser.Timeout, token); // Wait for responses
+        }
+        catch (TaskCanceledException)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     private async Task RescanPortsAsync(CmdLineArgParser.CmdLineArgParser parser, int srcPort, CancellationToken token,
         PacketCapture packetCapture)
     {
@@ -70,7 +82,7 @@ public class PortScanner
             await SendPacketAsync(protocol, srcPort, port);
         }
         
-        await Task.Delay(parser.Timeout, token);
+        if (await checkIfTimeoutIsNeeded(parser, token)) return;
         
         // Print filtered ports, so ports that we did not get response from after rescan
         foreach (var portEntry in parser.ports)

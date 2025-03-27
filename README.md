@@ -158,7 +158,7 @@ Run the L4 Scanner and Nmap on the same target and compare the results. Ensure t
 Testing on `Google public DNS server`.
 
 ```
-$ nmap -p443,80,53 -e enp4s0 --host-timeout 5s 8.8.8.8
+$ nmap -p443,80,53 -e enp4s0 --max-retries 1 --host-timeout 5s 8.8.8.8
 Starting Nmap 7.95 ( https://nmap.org ) at 2025-03-24 12:21 CET
 Nmap scan report for dns.google (8.8.8.8)
 Host is up (0.0039s latency).
@@ -180,7 +180,7 @@ $ sudo ./ipk-l4-scan -i enp4s0 -t 443,80,53 8.8.8.8
 Testing on `scanme.nmap.org`. This test also validates correct DNS resolution and that program scans multiple IP addresses of specific domain.
 
 ```
-$ sudo nmap -sSU -p445,80,53 -e wlp5s0 --host-timeout 5s scanme.nmap.org
+$ sudo nmap -sSU -p445,80,53 -e wlp5s0 --max-retries 1 --host-timeout 5s scanme.nmap.org
 Starting Nmap 7.95 ( https://nmap.org ) at 2025-03-26 14:14 CET
 Nmap scan report for scanme.nmap.org (45.33.32.156)
 Host is up (0.19s latency).
@@ -262,8 +262,7 @@ $ sudo ./ipk-l4-scan -i tun0 -u 53,123,143,9929 2600:3c01::f03c:91ff:fe18:bb2f
 
 Mix of UDP and TCP ports, IPv6 address
 ```
-$ sudo nmap -sSU -6 -e tun0 -p 443,80,123 2600:3c01::f03c:91ff:fe18:bb2f
-[sudo] password for annihilator: 
+$ sudo nmap -sSU -6 -e tun0 -p 443,80,123 --max-retries 1 --host-timeout 5000ms 2600:3c01::f03c:91ff:fe18:bb2f
 Starting Nmap 7.95 ( https://nmap.org ) at 2025-03-26 13:53 CET
 Nmap scan report for scanme.nmap.org (2600:3c01::f03c:91ff:fe18:bb2f)
 Host is up (0.16s latency).

@@ -6,7 +6,7 @@ using System.Reflection.Metadata.Ecma335;
 
 namespace ipk_l4_scan.packet
 {
-    public class PacketCapture
+    public class PacketCapture : IDisposable
     {
         private readonly Socket _scannerSocket;
         private readonly Socket _scannerSocketV6;
@@ -21,8 +21,10 @@ namespace ipk_l4_scan.packet
         private readonly int _srcPort;
         private readonly ConcurrentDictionary<(int Port, int Protocol), byte> _ports;
         private readonly IPAddress _dstIp;
+        private readonly CancellationTokenSource _cts;
+        private bool _disposed;
 
-        public PacketCapture(Socket scannerSocket, int srcPort, ConcurrentDictionary<(int Port, int Protocol), byte> ports, IPAddress dstIp)
+        public PacketCapture(Socket scannerSocket, int srcPort, ConcurrentDictionary<(int Port, int Protocol), byte> ports, IPAddress dstIp, CancellationTokenSource tokenSource)
         {
             _scannerSocket = scannerSocket ?? throw new ArgumentNullException(nameof(scannerSocket));
             _scannerSocketV6 = new Socket(AddressFamily.InterNetworkV6, SocketType.Raw, ProtocolType.Tcp); 
@@ -50,55 +52,117 @@ namespace ipk_l4_scan.packet
             _dstIp = dstIp;
             _srcPort = srcPort;
             _ports = ports;
+            _cts = tokenSource;
+            _disposed = false;
         }
-    public Task CapturePacketAsync()
-    {
-        // Start receiving on all sockets
-        StartReceiving(_scannerSocket, _scannerEventArgs);
-        StartReceiving(_scannerSocketV6, _scannerV6EventArgs);
-        StartReceiving(_icmpSocket, _icmpEventArgs);
-        StartReceiving(_icmpSocketV6, _icmpV6EventArgs);
-        return Task.CompletedTask;
-    }
 
-    private void StartReceiving(Socket socket, SocketAsyncEventArgs args)
-    {
-        if (!socket.ReceiveAsync(args))
+        public void Dispose()
         {
-            // If the operation completes synchronously, call the handler directly
-            OnReceiveCompleted(null, args);
+            if (_disposed) return;
+            
+            _disposed = true;
+            
+            // Clean up SocketAsyncEventArgs
+            _scannerEventArgs.Completed -= OnReceiveCompleted;
+            _scannerV6EventArgs.Completed -= OnReceiveCompleted;
+            _icmpEventArgs.Completed -= OnReceiveCompleted;
+            _icmpV6EventArgs.Completed -= OnReceiveCompleted;
+
+            _scannerEventArgs.Dispose();
+            _scannerV6EventArgs.Dispose();
+            _icmpEventArgs.Dispose();
+            _icmpV6EventArgs.Dispose();
+
+            // Close sockets
+            SafeCloseSocket(_scannerSocket);
+            SafeCloseSocket(_scannerSocketV6);
+            SafeCloseSocket(_icmpSocket);
+            SafeCloseSocket(_icmpSocketV6);
         }
-    }
 
-    private void OnReceiveCompleted(object? sender, SocketAsyncEventArgs e)
-    {
-        if (e.BytesTransferred > 0 && e.SocketError == SocketError.Success)
+        private void SafeCloseSocket(Socket socket)
         {
-            // Process the received data
-            byte[] buffer = new byte[e.BytesTransferred];
-            if (e.Buffer != null) Array.Copy(e.Buffer, e.Offset, buffer, 0, e.BytesTransferred);
-
-            // Analyze the packet
-            AnalysePacket(buffer);
-
-            // Continue receiving on the same socket
-            Socket receivingSocket = e == _scannerEventArgs ? _scannerSocket :
-                                    e == _scannerV6EventArgs ? _scannerSocketV6 :
-                                    e == _icmpEventArgs ? _icmpSocket :
-                                    _icmpSocketV6;
-
-            if (!receivingSocket.ReceiveAsync(e))
+            try
             {
-                OnReceiveCompleted(null, e);
+                socket?.Close();
+                socket?.Dispose();
+            }
+            catch
+            {
+                // Ignore any errors during disposal
             }
         }
-    }
 
-        
-        private  void AnalysePacket(byte[] buffer)
+        public Task CapturePacketAsync()
         {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(PacketCapture));
+
+            // Start receiving on all sockets
+            StartReceiving(_scannerSocket, _scannerEventArgs);
+            StartReceiving(_scannerSocketV6, _scannerV6EventArgs);
+            StartReceiving(_icmpSocket, _icmpEventArgs);
+            StartReceiving(_icmpSocketV6, _icmpV6EventArgs);
+            return Task.CompletedTask;
+        }
+
+        private void StartReceiving(Socket socket, SocketAsyncEventArgs args)
+        {
+            if (_disposed) return;
+            
+            try
+            {
+                if (!socket.ReceiveAsync(args))
+                {
+                    OnReceiveCompleted(null, args);
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                // Socket was disposed, ignore
+            }
+        }
+
+        private void OnReceiveCompleted(object? sender, SocketAsyncEventArgs e)
+        {
+            if (_disposed || e.BytesTransferred <= 0 || e.SocketError != SocketError.Success)
+                return;
+
+            try
+            {
+                // Process the received data
+                byte[] buffer = new byte[e.BytesTransferred];
+                if (e.Buffer != null) Array.Copy(e.Buffer, e.Offset, buffer, 0, e.BytesTransferred);
+
+                // Analyze the packet
+                AnalysePacket(buffer);
+
+                // Continue receiving on the same socket if not disposed
+                if (!_disposed)
+                {
+                    Socket receivingSocket = e == _scannerEventArgs ? _scannerSocket :
+                                          e == _scannerV6EventArgs ? _scannerSocketV6 :
+                                          e == _icmpEventArgs ? _icmpSocket :
+                                          _icmpSocketV6;
+
+                    if (!receivingSocket.ReceiveAsync(e))
+                    {
+                        OnReceiveCompleted(null, e);
+                    }
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                // Socket was disposed, ignore
+            }
+        }
+        
+        private void AnalysePacket(byte[] buffer)
+        {
+            if (_disposed) return;
+
             // raw sockets will not receive whole IP datagram, but transport header directly
-            //check if we got TCP header directly
+            // check if we got TCP header directly
             var dstPort = (ushort)((buffer[2] << 8) | buffer[3]);
             if (dstPort == _srcPort)
             {
@@ -107,7 +171,7 @@ namespace ipk_l4_scan.packet
                 HandleTransportLayer(buffer, dummyPacket);
             }
             
-            //check if we got ICMPv6 header
+            // check if we got ICMPv6 header
             var type = buffer[0];
             var code = buffer[1];
             if (type == 1 && (code == 4 || code == 1))
@@ -129,17 +193,16 @@ namespace ipk_l4_scan.packet
 
         private IpPacket CreateDummyPacket(byte protocol)
         {
-            if (_scannerSocket.LocalEndPoint is not IPEndPoint localEndPoint)
+            if (_disposed || !(_scannerSocket.LocalEndPoint is IPEndPoint localEndPoint))
             {
-                throw new InvalidOperationException("LocalEndPoint is null");
+                return new IpPacket { Protocol = protocol };
             }
 
-            var dummyPacket = new IpPacket
+            return new IpPacket
             {
                 SourceIp = localEndPoint.Address,
                 Protocol = protocol
             };
-            return dummyPacket;
         }
 
         private static IpPacket ParseIPv4Packet(byte[] buffer)
@@ -164,6 +227,7 @@ namespace ipk_l4_scan.packet
                     {
                         _ports.TryRemove((parsedTcpHeader.SourcePort, 6), out _);
                         PrintInfo(_dstIp, parsedTcpHeader.SourcePort, parsedPacket.Protocol, parsedTcpHeader.Flags);
+                        checkPortsCancelIfNeeded();
                     }
                     break;
                 }
@@ -176,6 +240,7 @@ namespace ipk_l4_scan.packet
                         // Mark the UDP port as closed
                         _ports.TryRemove((parsedIcmpHeader.DestinationPort, 17), out _);
                         PrintInfo(parsedPacket.SourceIp, (ushort)parsedIcmpHeader.DestinationPort, parsedIcmpHeader.Protocol, 0x04);
+                        checkPortsCancelIfNeeded();
                     }
 
                     break;
@@ -189,10 +254,19 @@ namespace ipk_l4_scan.packet
                         // Mark the UDP port as closed
                         _ports.TryRemove((parsedIcmpV6Header.DestinationPort, 17), out _);
                         PrintInfo(_dstIp, (ushort)parsedIcmpV6Header.DestinationPort, parsedIcmpV6Header.Protocol, 0x04);
+                        checkPortsCancelIfNeeded();
                     }
 
                     break;
                 }
+            }
+        }
+
+        private void checkPortsCancelIfNeeded()
+        {
+            if (_ports.IsEmpty)
+            {
+                _cts.Cancel();
             }
         }
 
